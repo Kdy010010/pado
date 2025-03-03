@@ -1,0 +1,139 @@
+// 파일명: pado_stdlib.pado
+
+module io {
+    // BIOS 텍스트 모드 teletype 방식으로 문자열을 출력합니다.
+    fn print(s: char*) {
+        let i = 0;
+        while (s[i] != 0) {
+            asm {
+                // s[i]의 문자를 AL에 로드한 후, teletype 출력 함수 호출
+                mov al, s[i]
+                mov ah, 0x0E
+                int 0x10
+            }
+            i = i + 1;
+        }
+    }
+    
+    // print 후 줄바꿈 문자를 추가하여 출력합니다.
+    fn println(s: char*) {
+        print(s);
+        print("\n");
+    }
+    
+    // 키보드 입력을 받아 buffer에 저장합니다.
+    // 최대 max_length-1 문자까지 읽고, 엔터(ASCII 13)를 만나면 종료합니다.
+    // 실제 구현에서는 BIOS int 0x16 등으로 키 입력을 처리해야 합니다.
+    fn scanf(buffer: char*, max_length: int) -> int {
+        let count = 0;
+        while (count < max_length - 1) {
+            asm {
+                mov ah, 0   // 키 입력 대기
+                int 0x16    // BIOS 키보드 서비스 호출
+            }
+            // 실제 환경에서는 AL 레지스터의 값을 읽어 변수 ch에 저장해야 합니다.
+            let ch = 0;  // placeholder: AL 값을 읽어와야 함
+            if (ch == 13) { // 엔터 키(ASCII 13) 인식 시 종료
+                break;
+            }
+            buffer[count] = ch;
+            count = count + 1;
+            // 에코 출력: 입력된 문자를 화면에 출력
+            asm {
+                mov al, ch
+                mov ah, 0x0E
+                int 0x10
+            }
+        }
+        buffer[count] = 0;
+        return count;
+    }
+}
+
+module stringhelper {
+    // 널 종료 문자열의 길이를 계산합니다.
+    fn strlen(s: char*) -> int {
+        let len = 0;
+        while (s[len] != 0) {
+            len = len + 1;
+        }
+        return len;
+    }
+    
+    // src 문자열을 dest로 복사합니다.
+    fn strcpy(dest: char*, src: char*) -> char* {
+        let i = 0;
+        while (src[i] != 0) {
+            dest[i] = src[i];
+            i = i + 1;
+        }
+        dest[i] = 0;
+        return dest;
+    }
+    
+    // src 문자열을 dest의 끝에 붙입니다.
+    fn strcat(dest: char*, src: char*) -> char* {
+        let i = 0;
+        while (dest[i] != 0) {
+            i = i + 1;
+        }
+        let j = 0;
+        while (src[j] != 0) {
+            dest[i] = src[j];
+            i = i + 1;
+            j = j + 1;
+        }
+        dest[i] = 0;
+        return dest;
+    }
+    
+    // 정수를 지정된 진법(base)의 문자열로 변환합니다.
+    fn itoa(num: int, buffer: char*, base: int) -> char* {
+        let index = 0;
+        let isNegative = false;
+        if (num < 0) {
+            isNegative = true;
+            num = -num;
+        }
+        if (num == 0) {
+            buffer[index] = '0';
+            index = index + 1;
+            buffer[index] = 0;
+            return buffer;
+        }
+        while (num != 0) {
+            let rem = num % base;
+            if (rem > 9) {
+                // 10 이상의 자릿수는 소문자 알파벳으로 변환 (예: 10 -> 'a')
+                buffer[index] = (rem - 10) + 'a';
+            } else {
+                buffer[index] = rem + '0';
+            }
+            index = index + 1;
+            num = num / base;
+        }
+        if (isNegative) {
+            buffer[index] = '-';
+            index = index + 1;
+        }
+        // 문자열을 뒤집어서 올바른 순서로 만듭니다.
+        let start = 0;
+        let end = index - 1;
+        while (start < end) {
+            let temp = buffer[start];
+            buffer[start] = buffer[end];
+            buffer[end] = temp;
+            start = start + 1;
+            end = end - 1;
+        }
+        buffer[index] = 0;
+        return buffer;
+    }
+    
+    // x86의 I/O 포트에 바이트 값을 출력합니다.
+    fn outb(port: int, value: byte) {
+        asm {
+            outb value, port
+        }
+    }
+}
